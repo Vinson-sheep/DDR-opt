@@ -1,6 +1,7 @@
 #ifndef _SIMULATOR_H_
 #define _SIMULATOR_H_
 
+#include "ros/forwards.h"
 #include "visualization_msgs/MarkerArray.h"
 #include <cmath>
 #include <ros/ros.h>
@@ -24,6 +25,7 @@
 #include <tf/transform_datatypes.h>
 
 #include <geometry_msgs/Point.h>
+#include <nav_msgs/Odometry.h>
 
 class Simulation{
     private:
@@ -35,10 +37,15 @@ class Simulation{
         ros::Publisher KinematicState_pub_;
         ros::Publisher radar_range_pub_;
 
+        ros::Publisher Pose_pose_pub_;
+        ros::Publisher Pose_odom_pub_;
+
         ros::Subscriber Clear_traj_sub_;
 
         ros::Timer Pose_pub_timer_;
         double Pose_pub_rate_;
+        ros::Timer Pose_odom_pub_timer_;
+        double Pose_odom_pub_rate_;
         ros::Timer State_Propa_timer_;
         double State_Propa_rate_;
 
@@ -132,6 +139,10 @@ class Simulation{
             State_Propa_rate_ = 1.0/State_Propa_rate;
             Pose_pub_rate_ = 1.0/Pose_pub_rate;
 
+            int Pose_odom_pub_rate;
+            nh_.param<int>(ros::this_node::getName()+"/Pose_odom_pub_rate",Pose_odom_pub_rate,50);
+            Pose_odom_pub_rate_ = 1.0/Pose_odom_pub_rate;
+
             nh_.param<bool>(ros::this_node::getName()+"/if_add_noise",if_add_noise_,false);
             nh_.param<double>(ros::this_node::getName()+"/noise_stddev",noise_stddev_,0.01);
 
@@ -142,6 +153,9 @@ class Simulation{
             Pose_sub_ = nh_.subscribe<carstatemsgs::CarState>("/simulation/PoseSub",1,&Simulation::PoseSubCallback,this,ros::TransportHints().unreliable());
             // Pose_sub_ = nh_.subscribe<carstatemsgs::CarState>("/simulation/PoseSub",1,&Simulation::PoseSubCallback,this);
             Pose_pub_ = nh_.advertise<carstatemsgs::CarState>("/simulation/PosePub",1);
+            Pose_pose_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("/simulation/PosePosePub",1);
+            Pose_odom_pub_ = nh_.advertise<nav_msgs::Odometry>("/simulation/PoseOdomPub",1);
+
             Rviz_pub_ = nh_.advertise<visualization_msgs::MarkerArray>("simulation/RvizCar",1);
             Rviz_Arrow_pub_ = nh_.advertise<visualization_msgs::Marker>("simulation/RvizCarArrow",1);
             KinematicState_pub_ = nh_.advertise<carstatemsgs::KinematicState>("/simulation/KinematicState",1);
@@ -151,6 +165,7 @@ class Simulation{
 
             State_Propa_timer_ = nh_.createTimer(ros::Duration(State_Propa_rate_),&Simulation::StatePropaCallback, this);
             Pose_pub_timer_ = nh_.createTimer(ros::Duration(Pose_pub_rate_),&Simulation::PosePubCallback, this);
+            Pose_odom_pub_timer_ = nh_.createTimer(ros::Duration(Pose_odom_pub_rate_),&Simulation::PoseOdomPubCallback, this);
 
             accu_traj_pub_ = nh_.advertise<visualization_msgs::Marker>("simulation/accu_traj",1);
             accu_traj_.header.frame_id = "world";
@@ -256,6 +271,33 @@ class Simulation{
 
             current_SVAJ_[0] += current_SVAJ_[1] * State_Propa_rate_;
             current_YOAJ_[0] += current_YOAJ_[1] * State_Propa_rate_;
+        }
+
+        void PoseOdomPubCallback(const ros::TimerEvent& event){
+            geometry_msgs::PoseStamped pose;
+            pose.header.frame_id = "world";
+            pose.header.stamp = ros::Time::now();
+            pose.pose.position.x = current_XYTheta_.x();
+            pose.pose.position.y = current_XYTheta_.y();
+            pose.pose.position.z = height_/2;
+            tf::Quaternion q = tf::createQuaternionFromRPY(0, 0, current_XYTheta_.z());
+            pose.pose.orientation.x = q.x();
+            pose.pose.orientation.y = q.y();
+            pose.pose.orientation.z = q.z();
+            pose.pose.orientation.w = q.w();
+            Pose_pose_pub_.publish(pose);
+
+            nav_msgs::Odometry odom;
+            odom.header.frame_id = "world";
+            odom.header.stamp = ros::Time::now();
+            odom.pose.pose.position.x = current_XYTheta_.x();
+            odom.pose.pose.position.y = current_XYTheta_.y();
+            odom.pose.pose.position.z = height_/2;
+            odom.pose.pose.orientation.x = q.x();
+            odom.pose.pose.orientation.y = q.y();
+            odom.pose.pose.orientation.z = q.z();
+            odom.pose.pose.orientation.w = q.w();
+            Pose_odom_pub_.publish(odom);
         }
 
         void PosePubCallback(const ros::TimerEvent& event){

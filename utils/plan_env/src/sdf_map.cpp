@@ -1,9 +1,9 @@
 #include "plan_env/sdf_map.h"
 
-void SDFmap::odomCallback(const carstatemsgs::CarState::ConstPtr &msg){
-  odom_ = *msg;
-  has_odom_ = true;
-}
+// void SDFmap::odomCallback(const carstatemsgs::CarState::ConstPtr &msg){
+//   odom_ = *msg;
+//   has_odom_ = true;
+// }
 
 void SDFmap::pointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr &msg){
   static tf2_ros::Buffer tf_buffer(ros::Duration(10.0));
@@ -18,6 +18,9 @@ void SDFmap::pointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr &msg){
       ROS_WARN("%s",ex.what());
       return;
   }
+
+  odom_pos_.head(2) = Eigen::Vector2d(transformStamped.transform.translation.x, transformStamped.transform.translation.y);
+  odom_pos_[2] = tf::getYaw(transformStamped.transform.rotation);
 
   // Perform coordinate transformation
   sensor_msgs::PointCloud2 transformed_cloud;
@@ -36,10 +39,10 @@ void SDFmap::updateOccupancyCallback(const ros::TimerEvent& /*event*/){
     ros::Time t1, t2;
     t1 = ros::Time::now();
 
-    x_lower_ = std::max(odom_.x - ceil(detection_range_ / grid_interval_)*grid_interval_, global_x_lower_);
-    x_upper_ = std::min(odom_.x + ceil(detection_range_ / grid_interval_)*grid_interval_, global_x_upper_);
-    y_lower_ = std::max(odom_.y - ceil(detection_range_ / grid_interval_)*grid_interval_, global_y_lower_);
-    y_upper_ = std::min(odom_.y + ceil(detection_range_ / grid_interval_)*grid_interval_, global_y_upper_);
+    x_lower_ = std::max(odom_pos_.x() - ceil(detection_range_ / grid_interval_)*grid_interval_, global_x_lower_);
+    x_upper_ = std::min(odom_pos_.x() + ceil(detection_range_ / grid_interval_)*grid_interval_, global_x_upper_);
+    y_lower_ = std::max(odom_pos_.y() - ceil(detection_range_ / grid_interval_)*grid_interval_, global_y_lower_);
+    y_upper_ = std::min(odom_pos_.y() + ceil(detection_range_ / grid_interval_)*grid_interval_, global_y_upper_);
 
     X_SIZE_ = ceil((x_upper_ - x_lower_) / grid_interval_);
     Y_SIZE_ = ceil((y_upper_ - y_lower_) / grid_interval_);
@@ -90,10 +93,10 @@ void SDFmap::updateOccupancyCallback(const ros::TimerEvent& /*event*/){
 
   
   else{
-    x_lower_ = std::max(odom_.x - ceil(detection_range_ / grid_interval_)*grid_interval_, global_x_lower_);
-    x_upper_ = std::min(odom_.x + ceil(detection_range_ / grid_interval_)*grid_interval_, global_x_upper_);
-    y_lower_ = std::max(odom_.y - ceil(detection_range_ / grid_interval_)*grid_interval_, global_y_lower_);
-    y_upper_ = std::min(odom_.y + ceil(detection_range_ / grid_interval_)*grid_interval_, global_y_upper_);
+    x_lower_ = std::max(odom_pos_.x() - ceil(detection_range_ / grid_interval_)*grid_interval_, global_x_lower_);
+    x_upper_ = std::min(odom_pos_.x() + ceil(detection_range_ / grid_interval_)*grid_interval_, global_x_upper_);
+    y_lower_ = std::max(odom_pos_.y() - ceil(detection_range_ / grid_interval_)*grid_interval_, global_y_lower_);
+    y_upper_ = std::min(odom_pos_.y() + ceil(detection_range_ / grid_interval_)*grid_interval_, global_y_upper_);
 
     X_SIZE_ = ceil((x_upper_ - x_lower_) / grid_interval_);
     Y_SIZE_ = ceil((y_upper_ - y_lower_) / grid_interval_);
@@ -129,7 +132,7 @@ void SDFmap::updateOccupancyCallback(const ros::TimerEvent& /*event*/){
 void SDFmap::raycastProcess(){
   int points_cnt = cloud_.points.size();
   
-  update_odom_ = Eigen::Vector2d(odom_.x, odom_.y);
+  update_odom_ = odom_pos_.head(2);
   Eigen::Vector2d cur_point;
   int vox_idx;
   double length;
@@ -178,13 +181,13 @@ void SDFmap::cirSupRaycastProcess(){
   int vox_idx;
 
   std::vector<Eigen::Vector2d> cir_points;
-  for(double x = odom_.x - detection_range_; x < odom_.x + detection_range_+1e-10;  x += 2*detection_range_){
-    for(double y = odom_.y - detection_range_; y < odom_.y + detection_range_+1e-10;  y += grid_interval_){
+  for(double x = odom_pos_.x() - detection_range_; x < odom_pos_.x() + detection_range_+1e-10;  x += 2*detection_range_){
+    for(double y = odom_pos_.y() - detection_range_; y < odom_pos_.y() + detection_range_+1e-10;  y += grid_interval_){
       cir_points.emplace_back(x,y);
     }
   }
-  for(double y = odom_.y - detection_range_; y < odom_.y + detection_range_+1e-10;  y += 2*detection_range_){
-    for(double x = odom_.x - detection_range_; x < odom_.x + detection_range_+1e-10;  x += grid_interval_){
+  for(double y = odom_pos_.y() - detection_range_; y < odom_pos_.y() + detection_range_+1e-10;  y += 2*detection_range_){
+    for(double x = odom_pos_.x() - detection_range_; x < odom_pos_.x() + detection_range_+1e-10;  x += grid_interval_){
       cir_points.emplace_back(x,y);
     }
   }
@@ -194,8 +197,8 @@ void SDFmap::cirSupRaycastProcess(){
   for(auto cir_point:cir_points){
    
     if(hrz_limited_){
-      double angle = atan2(cir_point.y() - odom_.y, cir_point.x() - odom_.x);
-      angle = normalize_angle(angle - odom_.yaw);
+      double angle = atan2(cir_point.y() - odom_pos_.y(), cir_point.x() - odom_pos_.x());
+      angle = normalize_angle(angle - odom_pos_.z());
       if(angle < -hrz_laser_range_dgr_/2.2 || angle >hrz_laser_range_dgr_/2.2){
         continue;
       }
@@ -312,8 +315,8 @@ void SDFmap::updateOccupancyMap(){
 
 void SDFmap::RemoveOutliers(){
   std::vector<Eigen::Vector2d> cir_points;
-  for(double x = odom_.x - detection_range_; x < odom_.x + detection_range_+1e-10;  x += grid_interval_){
-    for(double y = odom_.y - detection_range_; y < odom_.y + detection_range_+1e-10;  y += grid_interval_){
+  for(double x = odom_pos_.x() - detection_range_; x < odom_pos_.x() + detection_range_+1e-10;  x += grid_interval_){
+    for(double y = odom_pos_.y() - detection_range_; y < odom_pos_.y() + detection_range_+1e-10;  y += grid_interval_){
       cir_points.emplace_back(x,y);
     }
   }
@@ -335,7 +338,7 @@ void SDFmap::RemoveOutliers(){
     }
     
   }
-  Eigen::Vector2i idx = coord2gridIndex(Eigen::Vector2d(odom_.x, odom_.y));
+  Eigen::Vector2i idx = coord2gridIndex(Eigen::Vector2d(odom_pos_.x(), odom_pos_.y()));
   for(int i=-1; i<=1; i++){
     for(int j=-1; j<=1; j++){
       if(gridmap_[Index2Vectornum(idx.x()+i, idx.y()+j)] == Unknown){
@@ -591,9 +594,9 @@ Eigen::Vector2d SDFmap::closetPointInMap(const Eigen::Vector2d &pt, const Eigen:
 
 
 void SDFmap::updateESDF2d(){
-  Eigen::Vector2i min_esdf(floor(std::max(0.0, odom_.x - detection_range_ - global_x_lower_)*inv_grid_interval_), floor(std::max(0.0, odom_.y - detection_range_ - global_y_lower_)*inv_grid_interval_));
-  Eigen::Vector2i max_esdf(ceil(std::min(global_x_upper_ - global_x_lower_, odom_.x + detection_range_ - global_x_lower_)*inv_grid_interval_) - 1,
-                           ceil(std::min(global_y_upper_ - global_y_lower_, odom_.y + detection_range_ - global_y_lower_)*inv_grid_interval_) - 1);
+  Eigen::Vector2i min_esdf(floor(std::max(0.0, odom_pos_.x() - detection_range_ - global_x_lower_)*inv_grid_interval_), floor(std::max(0.0, odom_pos_.y() - detection_range_ - global_y_lower_)*inv_grid_interval_));
+  Eigen::Vector2i max_esdf(ceil(std::min(global_x_upper_ - global_x_lower_, odom_pos_.x() + detection_range_ - global_x_lower_)*inv_grid_interval_) - 1,
+                           ceil(std::min(global_y_upper_ - global_y_lower_, odom_pos_.y() + detection_range_ - global_y_lower_)*inv_grid_interval_) - 1);
 
   int update_X_SIZE = max_esdf.x() - min_esdf.x();
   int update_Y_SIZE = max_esdf.y() - min_esdf.y();

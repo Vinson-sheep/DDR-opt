@@ -4,7 +4,7 @@ DDR-opt is a universal Trajectory Optimization Framework for Differential Drive 
 
 The paper is currently reviewed by T-ASE.
 
-Please visit our project website [DDR-opt](https://zju-fast-lab.github.io/DDR-opt/)。
+Please visit our project website [DDR-opt](https://zju-fast-lab.github.io/DDR-opt/).
 If you find this work useful or interesting, please kindly give us a star ⭐, thanks! 😀
 
 <p align="center">
@@ -40,6 +40,11 @@ mkdir -p DDRopt_ws/src
 cd DDRopt_ws/src
 git clone git@github.com:ZJU-FAST-Lab/DDR-opt.git
 catkin build
+```
+
+### Run
+You can run any of the following: 
+``` bash
 roslaunch plan_manager planner_nmpc.launch # for robots controlled by wheel speeds
 roslaunch plan_manager planner_sim_unknown.launch # for planning in unknown space
 roslaunch plan_manager planner_sim.launch # for robots controlled by linear and angular velocity

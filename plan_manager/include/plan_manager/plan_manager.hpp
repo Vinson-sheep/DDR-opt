@@ -13,6 +13,7 @@
 #include "std_msgs/Bool.h"
 
 #include <thread>
+#include <nav_msgs/Odometry.h>
 
 enum StateMachine{
   INIT,
@@ -84,7 +85,8 @@ class PlanManager
       jps_planner_ = std::make_shared<JPS::JPSPlanner>(sdfmap_, nh_);
 
       goal_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("/move_base_simple/goal",1,&PlanManager::goal_callback,this);
-      current_state_sub_ = nh_.subscribe<carstatemsgs::CarState>("/simulation/PosePub",1,&PlanManager::GeometryCallback,this);
+      // current_state_sub_ = nh_.subscribe<carstatemsgs::CarState>("/simulation/PosePub",1,&PlanManager::GeometryCallback,this);
+      current_state_sub_ = nh_.subscribe<nav_msgs::Odometry>("/ICREKF/EKF_XYTheta",1,&PlanManager::GeometryCallback,this);
       main_thread_timer_ = nh_.createTimer(ros::Duration(0.001),&PlanManager::MainThread, this);
       cmd_pub_ = nh_.advertise<carstatemsgs::CarState>("/simulation/PoseSub",1);
       emergency_stop_pub_ = nh_.advertise<std_msgs::Bool>("/planner/emergency_stop",1);
@@ -124,13 +126,22 @@ class PlanManager
       if(state_machine_ == REPLAN) ROS_INFO("state_machine_ == REPLAN");
     }
 
-    void GeometryCallback(const carstatemsgs::CarState::ConstPtr &msg){
+    // void GeometryCallback(const carstatemsgs::CarState::ConstPtr &msg){
+    //   have_geometry_ = true;
+    //   current_state_XYTheta_ << msg->x, msg->y, msg->yaw;
+    //   current_state_VAJ_ << msg->v, msg->a, msg->js;
+    //   current_state_OAJ_ << msg->omega, msg->alpha, msg->jyaw;
+    //   current_time_ = msg->Header.stamp;
+    // }
+
+    void GeometryCallback(const nav_msgs::Odometry::ConstPtr &msg){
       have_geometry_ = true;
-      current_state_XYTheta_ << msg->x, msg->y, msg->yaw;
-      current_state_VAJ_ << msg->v, msg->a, msg->js;
-      current_state_OAJ_ << msg->omega, msg->alpha, msg->jyaw;
-      current_time_ = msg->Header.stamp;
+      current_state_XYTheta_ << msg->pose.pose.position.x, msg->pose.pose.position.y, tf::getYaw(msg->pose.pose.orientation);
+      current_state_VAJ_ << 0.0, 0.0, 0.0;
+      current_state_OAJ_ << 0.0, 0.0, 0.0;
+      current_time_ = msg->header.stamp;
     }
+
 
     void goal_callback(const geometry_msgs::PoseStamped::ConstPtr &msg){
       // Ignore the given goal at runtime, commenting out this check may cause unexpected bugs

@@ -7,10 +7,10 @@ smoothingFactor:            0.01
 # optimization parameters
 path_lbfgs_params:
   mem_size:                 256
-  past:                     4
+  past:                     2
   g_epsilon:                0.0
   min_step:                 0.0
-  delta:                    1.0e-4
+  delta:                    1.0e-2
   max_iterations:           8000
   shot_path_past:           8
   shot_path_horizon:        0.5
@@ -34,7 +34,7 @@ lbfgs_params:
   past:                     3
   g_epsilon:                0.0
   min_step:                 1.0e-32
-  delta:                    3.0e-10
+  delta:                    5.0e-4
   max_iterations:           8000
 
 # Mean time constraint range

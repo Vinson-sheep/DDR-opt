@@ -8,7 +8,7 @@ void MySigintHandler(int sig) {
 
 int main(int argc, char** argv){ 
   ros::init(argc, argv, "mpc_node");
-  ros::NodeHandle nh;
+  ros::NodeHandle nh("~");
 
   MpcController mpccontroller(nh);
   signal(SIGINT,MySigintHandler);  

@@ -52,9 +52,7 @@ struct Config
 struct PenaltyWeights{
     double time_weight;
     double time_weight_backup_for_replan;
-    double vel_weight;
     double acc_weight;
-    double omega_weight;
     double domega_weight;
     double collision_weight;
     double moment_weight;

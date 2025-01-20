@@ -1,6 +1,7 @@
 #include "nmpc_controller/mpc.h"
 #include <nav_msgs/Path.h>
 #include "tf/tf.h"
+#include "tf/transform_datatypes.h"
 
 MpcController::MpcController(const ros::NodeHandle &nh){
 
@@ -37,7 +38,8 @@ MpcController::MpcController(const ros::NodeHandle &nh){
 
     std::cout<<"trajectory topic name: "<<traj_sub_.getTopic()<<std::endl;
 
-    odom_sub_ = nh_.subscribe<carstatemsgs::CarState>("odom", 1, &MpcController::OdomCallback, this);
+    // odom_sub_ = nh_.subscribe<carstatemsgs::CarState>("odom", 1, &MpcController::OdomCallback, this);
+    odom_sub_ = nh_.subscribe<nav_msgs::Odometry>("odom", 1, &MpcController::OdomCallback, this);
     sequence_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("sequence",1);
     cmd_pub_ = nh_.advertise<carstatemsgs::CarState>("cmd",1);
 
@@ -95,16 +97,28 @@ MpcController::MpcController(const ros::NodeHandle &nh){
     start_time = -1;
 }
 
-void MpcController::OdomCallback(const carstatemsgs::CarState::ConstPtr& msg){    
+// void MpcController::OdomCallback(const carstatemsgs::CarState::ConstPtr& msg){    
+//     has_odom = true;
+
+//     current_state_.x() = msg->x;
+//     current_state_.y() = msg->y;
+//     current_state_.z() = msg->yaw;
+
+//     est_state_ = current_state_;
+
+//     now_state_time_ = msg->Header.stamp;
+// }
+
+void MpcController::OdomCallback(const nav_msgs::Odometry::ConstPtr& msg){    
     has_odom = true;
 
-    current_state_.x() = msg->x;
-    current_state_.y() = msg->y;
-    current_state_.z() = msg->yaw;
+    current_state_.x() = msg->pose.pose.position.x;
+    current_state_.y() = msg->pose.pose.position.y;
+    current_state_.z() = tf::getYaw(msg->pose.pose.orientation);
 
     est_state_ = current_state_;
 
-    now_state_time_ = msg->Header.stamp;
+    now_state_time_ = msg->header.stamp;
 }
 
 void MpcController::ICRCallback(const geometry_msgs::PointStamped::ConstPtr& msg){

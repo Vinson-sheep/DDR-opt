@@ -1,6 +1,8 @@
 #include "mpc_controller/mpc.h"
 #include <nav_msgs/Path.h>
+#include "nav_msgs/Odometry.h"
 #include "tf/tf.h"
+#include "tf/transform_datatypes.h"
 
 MpcController::MpcController(const ros::NodeHandle &nh){
     nh_ = nh;
@@ -47,7 +49,8 @@ MpcController::MpcController(const ros::NodeHandle &nh){
     new_traj_.setRes(state_seq_res, Integral_appr_resInt);
 
     traj_sub_ = nh_.subscribe<carstatemsgs::Polynome>("traj", 1, &MpcController::TrajCallback, this);
-    odom_sub_ = nh_.subscribe<carstatemsgs::CarState>("odom", 1, &MpcController::OdomCallback, this);
+    // odom_sub_ = nh_.subscribe<carstatemsgs::CarState>("odom", 1, &MpcController::OdomCallback, this);
+    odom_sub_ = nh_.subscribe<nav_msgs::Odometry>("odom", 1, &MpcController::OdomCallback, this);
     sequence_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/mpc/sequence",1);
     cmd_pub_ = nh_.advertise<carstatemsgs::CarState>("cmd",1);
 
@@ -66,16 +69,29 @@ MpcController::MpcController(const ros::NodeHandle &nh){
     start_time = -1;
 }
 
-void MpcController::OdomCallback(const carstatemsgs::CarState::ConstPtr& msg){    
+// void MpcController::OdomCallback(const carstatemsgs::CarState::ConstPtr& msg){    
+//     has_odom = true;
+
+//     now_state.x = msg->x;
+//     now_state.y = msg->y;
+//     now_state.theta = msg->yaw;
+//     now_state.v = msg->v;
+//     now_state.w = msg->omega;
+
+//     now_state_time_ = msg->Header.stamp;
+// }
+
+void MpcController::OdomCallback(const nav_msgs::Odometry::ConstPtr& msg){    
     has_odom = true;
 
-    now_state.x = msg->x;
-    now_state.y = msg->y;
-    now_state.theta = msg->yaw;
-    now_state.v = msg->v;
-    now_state.w = msg->omega;
+    now_state.x = msg->pose.pose.position.x;
+    now_state.y = msg->pose.pose.position.y;
+    now_state.theta = tf::getYaw(msg->pose.pose.orientation);
+    now_state.v = 0.0;
+    now_state.w = 0.0;
 
-    now_state_time_ = msg->Header.stamp;
+    now_state_time_ = msg->header.stamp;
+
 }
 
 void MpcController::TrajCallback(const carstatemsgs::Polynome::ConstPtr& msg){

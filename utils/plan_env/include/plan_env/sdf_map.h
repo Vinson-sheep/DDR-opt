@@ -27,6 +27,7 @@
 #include <tf2_ros/transform_listener.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <tf2_sensor_msgs/tf2_sensor_msgs.h>
+#include <tf/transform_datatypes.h>
 
 #include <plan_env/raycast.h>
 
@@ -53,8 +54,9 @@ class SDFmap
     bool if_have_map_ = false;
     pcl::PointCloud<pcl::PointXYZ> cloud_;
 
-    carstatemsgs::CarState odom_;
-    ros::Subscriber odom_sub_;
+    // carstatemsgs::CarState odom_;
+    Eigen::Vector3d odom_pos_;
+    // ros::Subscriber odom_sub_;
     Eigen::Vector2d update_odom_;
     bool has_odom_ = false;
 
@@ -128,7 +130,7 @@ class SDFmap
 
       // cloud_sub_ = nh_.subscribe<sensor_msgs::PointCloud2>("/laser_simulator/local_pointcloud", 1, &SDFmap::pointCloudCallback, this);
       cloud_sub_ = nh_.subscribe<sensor_msgs::PointCloud2>("/local_pointcloud", 1, &SDFmap::pointCloudCallback, this);
-      odom_sub_ = nh_.subscribe<carstatemsgs::CarState>("/odom", 1, &SDFmap::odomCallback, this);
+      // odom_sub_ = nh_.subscribe<carstatemsgs::CarState>("/odom", 1, &SDFmap::odomCallback, this);
 
       nh_.param<double>(ros::this_node::getName()+"/detection_range",detection_range_,5.0);
       
@@ -189,7 +191,7 @@ class SDFmap
     bool get_grid_map_;
 
     void pointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr &msg);
-    void odomCallback(const carstatemsgs::CarState::ConstPtr &msg);
+    // void odomCallback(const carstatemsgs::CarState::ConstPtr &msg);
 
     void updateOccupancyCallback(const ros::TimerEvent& /*event*/);
     void raycastProcess();

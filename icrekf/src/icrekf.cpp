@@ -1,5 +1,6 @@
 #include "icrekf/icrekf.h"
 #include "Eigen/Eigenvalues"
+#include "nav_msgs/Odometry.h"
 
 void ICREKF::PoseSubCallback(const carstatemsgs::SimulatedCarState::ConstPtr &msg){
 
@@ -35,6 +36,42 @@ void ICREKF::PoseSubCallback(const carstatemsgs::SimulatedCarState::ConstPtr &ms
 // std::cout<<"current_state_: "<<current_state_.transpose()<<std::endl;
     get_update_x(x_, conv_, current_state_);
 }
+
+
+
+void ICREKF::PoseOdomSubCallback(const nav_msgs::Odometry::ConstPtr &msg){
+    if(!if_update_) return;
+
+    if(!get_state_){
+        current_state_ << msg->pose.pose.position.x, msg->pose.pose.position.y, tf::getYaw(msg->pose.pose.orientation);
+        current_state_VVXVY_ << msg->twist.twist.linear.x, msg->twist.twist.linear.y, msg->twist.twist.angular.z;
+        current_state_omega_ = msg->twist.twist.angular.z;
+        current_time_ = msg->header.stamp;
+        
+        x_.head(3) = current_state_;
+
+        get_state_ = true;
+        return;
+    }
+    if(Pose_sub_Reduce_count_ < Pose_sub_Reduce_frequency_){
+        Pose_sub_Reduce_count_++;
+        return;
+    }
+    else{
+        Pose_sub_Reduce_count_ -= Pose_sub_Reduce_frequency_;
+    }
+
+    current_state_ << msg->pose.pose.position.x, msg->pose.pose.position.y, tf::getYaw(msg->pose.pose.orientation);
+    current_state_VVXVY_ << msg->twist.twist.linear.x, msg->twist.twist.linear.y, msg->twist.twist.angular.z;
+    current_state_omega_ = msg->twist.twist.angular.z;
+
+    while(current_state_[2] - x_[2] > M_PI) current_state_[2] -= 2 * M_PI;
+    while(current_state_[2] - x_[2] < -M_PI) current_state_[2] += 2 * M_PI;
+
+    current_time_ = msg->header.stamp;
+    get_update_x(x_, conv_, current_state_);
+}
+
 
 void ICREKF::ControlSubCallback(const carstatemsgs::CarControl::ConstPtr &msg){
     if(!if_update_) return;
@@ -189,10 +226,33 @@ void ICREKF::state_pub_timer_callback(const ros::TimerEvent& event){
     geometry_msgs::PointStamped ps;
     ps.header.frame_id = "base";
     ps.header.stamp = ros::Time::now();
-    ps.point.x = x_[0];
-    ps.point.y = x_[1];
-    ps.point.z = x_[2];
-    state_XYTheta_pub_.publish(ps);
+    // ps.point.x = x_[0];
+    // ps.point.y = x_[1];
+    // ps.point.z = x_[2];
+    // state_XYTheta_pub_.publish(ps);
+
+    nav_msgs::Odometry odom;
+    odom.header.frame_id = "world";
+    odom.header.stamp = ros::Time::now();
+    odom.pose.pose.position.x = x_[0];
+    odom.pose.pose.position.y = x_[1];
+    odom.pose.pose.position.z = 0;
+    tf::Quaternion q = tf::createQuaternionFromYaw(x_[2]);
+    odom.pose.pose.orientation.x = q.x();
+    odom.pose.pose.orientation.y = q.y();
+    odom.pose.pose.orientation.z = q.z();
+    odom.pose.pose.orientation.w = q.w();
+    state_XYTheta_pub_.publish(odom);
+    
+
+    // geometry_msgs::PoseStamped ps1;
+    // ps1.header.frame_id = "world";
+    // ps1.header.stamp = ros::Time::now();
+    // ps1.pose.position.x = x_[0];
+    // ps1.pose.position.y = x_[1];
+    // ps1.pose.position.z = 0;
+    // ps1.pose.orientation = tf::createQuaternionMsgFromYaw(x_[2]);
+    // state_XYTheta_pub_.publish(ps1);
 
     ps.point.x = x_[3];
     ps.point.y = x_[4];

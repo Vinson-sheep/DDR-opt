@@ -18,6 +18,12 @@
 
 #include <geometry_msgs/PointStamped.h>
 
+#include "tf/transform_datatypes.h"
+
+#include <geometry_msgs/PointStamped.h>
+#include <nav_msgs/Odometry.h>
+
+
 class FirstOrderFilter {
 private:
     double cutoffFrequency;
@@ -72,6 +78,7 @@ class ICREKF{
         ros::Subscriber Pose_sub_;
         int Pose_sub_Reduce_frequency_;
         int Pose_sub_Reduce_count_;
+        ros::Subscriber Pose_odom_sub_;
 
         ros::Subscriber control_sub_;
 
@@ -102,7 +109,8 @@ class ICREKF{
         ICREKF(ros::NodeHandle nh){
             nh_ = nh;
 
-            Pose_sub_ = nh_.subscribe<carstatemsgs::SimulatedCarState>("/ref_pose", 1, &ICREKF::PoseSubCallback, this);
+            // Pose_sub_ = nh_.subscribe<carstatemsgs::SimulatedCarState>("/ref_pose", 1, &ICREKF::PoseSubCallback, this);
+            Pose_odom_sub_ = nh_.subscribe<nav_msgs::Odometry>("/odom", 1, &ICREKF::PoseOdomSubCallback, this);
             nh_.param<int>(ros::this_node::getName()+"/Pose_sub_Reduce_frequency_", Pose_sub_Reduce_frequency_, 10);
             Pose_sub_Reduce_count_ = 0;
             control_sub_ = nh_.subscribe<carstatemsgs::CarControl>("/control", 1, &ICREKF::ControlSubCallback, this);
@@ -111,7 +119,7 @@ class ICREKF{
             state_pub_rate_ = 1.0 / state_pub_frequency_;
             std::cout<<state_pub_frequency_<<std::endl;
             state_pub_timer_ = nh_.createTimer(ros::Duration(state_pub_rate_), &ICREKF::state_pub_timer_callback, this);
-            state_XYTheta_pub_ = nh_.advertise<geometry_msgs::PointStamped>("EKF_XYTheta", 1);
+            state_XYTheta_pub_ = nh_.advertise<nav_msgs::Odometry>("EKF_XYTheta", 1);
             state_ICR_pub_ = nh_.advertise<geometry_msgs::PointStamped>("EKF_ICR", 1);
             simple_state_ICR_pub_ = nh_.advertise<geometry_msgs::PointStamped>("Simple_EKF_ICR", 1);
             ICR_eigenvalues_pub_ = nh_.advertise<geometry_msgs::PointStamped>("EKF_ICR_eigenvalues", 1);
@@ -176,6 +184,7 @@ class ICREKF{
 
         void PoseSubCallback(const carstatemsgs::SimulatedCarState::ConstPtr &msg);
         void ControlSubCallback(const carstatemsgs::CarControl::ConstPtr &msg);
+        void PoseOdomSubCallback(const nav_msgs::Odometry::ConstPtr &msg);
 
         void get_forecast_x(Eigen::VectorXd& _x, Eigen::MatrixXd& _conv, const Eigen::Vector2d& input_u, const double& u_duration);
 

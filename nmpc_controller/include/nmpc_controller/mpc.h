@@ -26,6 +26,7 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include "sensor_msgs/PointCloud2.h"
 #include "visualization_msgs/Marker.h"
+#include "nav_msgs/Odometry.h"
 
 #include <osqp/osqp.h>
 #include <OsqpEigen/OsqpEigen.h>
@@ -119,7 +120,8 @@ class MpcController{
         ros::Subscriber odom_sub_;
         ros::Subscriber traj_sub_;
 
-        void OdomCallback(const carstatemsgs::CarState::ConstPtr& msg);
+        // void OdomCallback(const carstatemsgs::CarState::ConstPtr& msg);
+        void OdomCallback(const nav_msgs::Odometry::ConstPtr& msg);
         void TrajCallback(const carstatemsgs::Polynome::ConstPtr& msg);
         ros::Subscriber emergency_stop_sub_;
 

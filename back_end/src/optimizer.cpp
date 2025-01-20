@@ -28,9 +28,7 @@ MSPlanner::MSPlanner(const Config &conf, ros::NodeHandle &nh, std::shared_ptr<SD
 
     readParam(ros::this_node::getName()+ "/penaltyWeights/time_weight",penaltyWt.time_weight_backup_for_replan);
     penaltyWt.time_weight = penaltyWt.time_weight_backup_for_replan;
-    readParam(ros::this_node::getName()+ "/penaltyWeights/vel_weight",penaltyWt.vel_weight);
     readParam(ros::this_node::getName()+ "/penaltyWeights/acc_weight",penaltyWt.acc_weight);
-    readParam(ros::this_node::getName()+ "/penaltyWeights/omega_weight",penaltyWt.omega_weight);
     readParam(ros::this_node::getName()+ "/penaltyWeights/domega_weight",penaltyWt.domega_weight);
     readParam(ros::this_node::getName()+ "/penaltyWeights/collision_weight",penaltyWt.collision_weight);
     readParam(ros::this_node::getName()+ "/penaltyWeights/moment_weight",penaltyWt.moment_weight);
