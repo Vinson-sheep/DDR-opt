@@ -2,21 +2,21 @@
 
 DDR-opt is a universal Trajectory Optimization Framework for Differential Drive Robot Class.
 
-The paper is currently reviewed by T-ASE.
+The paper is published in T-ASE!
 
 Please visit our project website [DDR-opt](https://zju-fast-lab.github.io/DDR-opt/).
 If you find this work useful or interesting, please kindly give us a star ⭐, thanks! 😀
 
 <p align="center">
-    <img src="others/picture/head_figure_trajectory2.png" alt="Trajectory" width="50%">
+    <img src="others/picture/head_figure_trajectory2.png" alt="Trajectory" width="70%">
 </p>
 
 ## Quick Start
 Compiling tests passed on ubuntu **18.04, and 20.04** with ros installed.
 You can just execute the following commands one by one.
 ### Dependence:
-```
-sudo apt install ros-noetic-tf2-sensor-msgs
+``` bash
+sudo apt install ros-noetic-tf2-sensor-msgs # or melodic
 ```
 
 OSQP and OSQP-Eigen make it easier to modify parameters and are used to solve control problems under velocity and angular velocity control.
@@ -39,6 +39,7 @@ sudo make install
 mkdir -p DDRopt_ws/src
 cd DDRopt_ws/src
 git clone git@github.com:ZJU-FAST-Lab/DDR-opt.git
+cd ..
 catkin build
 ```
 
@@ -54,16 +55,16 @@ You can use `2D Nav Goal` to set goal point.
 
 
 ## Citing
-The method used in this software are described in the following paper (available on [arxiv](https://arxiv.org/abs/2409.07924v2))
-
+The method used in this software are described in the following paper (available on [IEEE](https://ieeexplore.ieee.org/document/10924228) and [arxiv](https://arxiv.org/abs/2409.07924v2))
 ```
-@misc{zhang2024universaltrajectoryoptimizationframework,
-      title={Universal Trajectory Optimization Framework for Differential Drive Robot Class}, 
-      author={Mengke Zhang and Nanhe Chen and Hu Wang and Jianxiong Qiu and Zhichao Han and Qiuyu Ren and Chao Xu and Fei Gao and Yanjun Cao},
-      year={2024},
-      eprint={2409.07924},
-      archivePrefix={arXiv},
-      primaryClass={cs.RO},
-      url={https://arxiv.org/abs/2409.07924}, 
-}
+@ARTICLE{zhang2024universaltrajectoryoptimizationframework,
+  author={Zhang, Mengke and Chen, Nanhe and Wang, Hu and Qiu, Jianxiong and Han, Zhichao and Ren, Qiuyu and Xu, Chao and Gao, Fei and Cao, Yanjun},
+  journal={IEEE Transactions on Automation Science and Engineering}, 
+  title={Universal Trajectory Optimization Framework for Differential Drive Robot Class}, 
+  year={2025},
+  volume={22},
+  number={},
+  pages={13030-13045},
+  keywords={Robots;Mobile robots;Kinematics;Trajectory optimization;Planning;Robot kinematics;Computational modeling;Dynamics;Wheels;Tracking;Motion planning;trajectory optimization;differential drive robot class;nonholonomic dynamics},
+  doi={10.1109/TASE.2025.3550676}}
 ```
