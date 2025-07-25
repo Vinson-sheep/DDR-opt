@@ -16,6 +16,7 @@
   <arg name="odom_topic" value="/ICREKF/EKF_XYTheta" />
   <arg name="traj_topic" value="/planner/traj_poly" />
   <arg name="cmd_topic" value="/simulation/PoseSub" />
+  <arg name="wheel_cmd_topic" value="/simulation/ControlSub" />
 
   <arg name="velocity_suffix" value="3ms"/>
 
@@ -74,8 +75,9 @@
     <param name="global_y_upper" value="10.0"/>
     <param name="if_perspective" value="$(arg if_perspective_)"/>
     <param name="if_cirSupRaycast" value="true"/>
-    <remap from="local_pointcloud" to="/laser_simulator/local_pointcloud"/>
-    <remap from="odom" to="$(arg odom_topic)"/>
+    <remap from="~local_pointcloud" to="/laser_simulator/local_pointcloud"/>
+    <remap from="~odom" to="$(arg odom_topic)"/>
+    <remap from="~traj" to="$(arg traj_topic)"/>
 
     <param name="ICR_yr" value="$(arg ICR_yr_)"/>
     <param name="ICR_yl" value="$(arg ICR_yl_)"/>
@@ -116,6 +118,8 @@
       <remap from="~cmd" to="$(arg cmd_topic)"/>
       <remap from="~odom" to="$(arg odom_topic)"/>
       <remap from="~traj" to="$(arg traj_topic)"/>
+      <remap from="~wheel_cmd" to="$(arg wheel_cmd_topic)"/>
+      <remap from="~EKF_ICR" to="/ICREKF/EKF_ICR"/>
     </node>
   </group>
 

@@ -86,14 +86,14 @@ class PlanManager
 
       goal_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("/move_base_simple/goal",1,&PlanManager::goal_callback,this);
       // current_state_sub_ = nh_.subscribe<carstatemsgs::CarState>("/simulation/PosePub",1,&PlanManager::GeometryCallback,this);
-      current_state_sub_ = nh_.subscribe<nav_msgs::Odometry>("/ICREKF/EKF_XYTheta",1,&PlanManager::GeometryCallback,this);
+      current_state_sub_ = nh_.subscribe<nav_msgs::Odometry>("odom",1,&PlanManager::GeometryCallback,this);
       main_thread_timer_ = nh_.createTimer(ros::Duration(0.001),&PlanManager::MainThread, this);
       cmd_pub_ = nh_.advertise<carstatemsgs::CarState>("/simulation/PoseSub",1);
       emergency_stop_pub_ = nh_.advertise<std_msgs::Bool>("/planner/emergency_stop",1);
 
       record_pub_ = nh_.advertise<visualization_msgs::Marker>("/planner/calculator_time",1);
 
-      mpc_polynome_pub_ = nh_.advertise<carstatemsgs::Polynome>("/planner/traj_poly", 1);
+      mpc_polynome_pub_ = nh_.advertise<carstatemsgs::Polynome>("traj", 1);
 
       have_geometry_ = false;
       have_goal_ = false;

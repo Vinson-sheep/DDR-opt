@@ -167,7 +167,7 @@ bool MSPlanner::minco_plan(const FlatTrajData &flat_traj){
     bool final_collision = false;
     int replan_num_for_coll = 0;
 
-    double start_safe_dis = map_->getDistanceReal(flat_traj.start_state_XYTheta.head(2))*0.95;
+    double start_safe_dis = map_->getDistanceReal(flat_traj.start_state_XYTheta.head(2))*0.85;
     safeDis = std::min(start_safe_dis, safeDis_);
     
     for(; replan_num_for_coll < safeReplanMaxTime; replan_num_for_coll++){
@@ -705,6 +705,9 @@ void MSPlanner::attachPenaltyFunctional(double &cost){
     double violaAccPenaD, violaAlpPenaD, violaPosPenaD, violaMomPenaD, violaCenAccPenaD;
     double gradViolaAT, gradViolaDOT, gradViolaPt, gradViolaMt, gradViolaCAt;
 
+    double violaVel, violaVelPena, violaVelPenaD;
+    double violaOmega, violaOmegaPena, violaOmegaPenaD;
+
     Eigen::Matrix2d help_L;
     Eigen::Vector3d gradESDF;
     Eigen::Vector2d gradESDF2d;
@@ -835,33 +838,58 @@ void MSPlanner::attachPenaltyFunctional(double &cost){
                     cost += omgstep * penaltyWt.domega_weight * violaAlpPena;
                     cost_domega += omgstep * penaltyWt.domega_weight * violaAlpPena;
                 }
-                // Handle the constraints on speed and angular velocity caused by the driving wheel torque. 
-                // The polynomial inequality forms a symmetric quadrilateral, so four hyperplanes are used for constraint.
-                for(int omg_sym = -1; omg_sym <= 1; omg_sym += 2){
-                    violaMom = omg_sym * config_.max_vel_ * dsigma.x() + config_.max_omega_ * dsigma.y() - config_.max_vel_ * config_.max_omega_;
-                    if(violaMom > 0){
-                        positiveSmoothedL1(violaMom, violaMomPena, violaMomPenaD);
-                        gradViolaMt = Alpha * (omg_sym * config_.max_vel_ * ddsigma.x() + config_.max_omega_ * ddsigma.y());
-                        gradBeta(1,0) += omgstep * penaltyWt.moment_weight * violaMomPenaD * omg_sym * config_.max_vel_;
-                        gradBeta(1,1) += omgstep * penaltyWt.moment_weight * violaMomPenaD * config_.max_omega_;
-                        partialGradByTimes(i) += omg * penaltyWt.moment_weight * (violaMomPenaD * gradViolaMt * step + violaMomPena / sparseResolution_);
-                        cost += omgstep * penaltyWt.moment_weight * violaMomPena;
-                        cost_moment += omgstep * penaltyWt.moment_weight * violaMomPena;
-                    }
-                }
-                for(int omg_sym = -1; omg_sym <= 1; omg_sym += 2){
-                    violaMom = omg_sym * -config_.min_vel_ * dsigma.x() - config_.max_omega_ * dsigma.y() + config_.min_vel_ * config_.max_omega_;
-                    if(violaMom > 0){
-                        positiveSmoothedL1(violaMom, violaMomPena, violaMomPenaD);
-                        gradViolaMt = Alpha * (omg_sym * -config_.min_vel_ * ddsigma.x() - config_.max_omega_ * ddsigma.y());
-                        gradBeta(1,0) += omgstep * penaltyWt.moment_weight * violaMomPenaD * omg_sym * -config_.min_vel_;
-                        gradBeta(1,1) -= omgstep * penaltyWt.moment_weight * violaMomPenaD * config_.max_omega_;
-                        partialGradByTimes(i) += omg * penaltyWt.moment_weight * (violaMomPenaD * gradViolaMt * step + violaMomPena / sparseResolution_);
-                        cost += omgstep * penaltyWt.moment_weight * violaMomPena;
-                        cost_moment += omgstep * penaltyWt.moment_weight * violaMomPena;
-                    }
-                }
 
+                if(config_.if_directly_constrain_v_omega_){
+                    // Directly constrain velocity and angular velocity
+                    violaVel = dsigma.y() * dsigma.y() - config_.max_vel_ * config_.max_vel_;
+                    if(violaVel > 0){
+                        positiveSmoothedL1(violaVel, violaVelPena, violaVelPenaD);
+                        gradViolaPt = 2.0 * Alpha * dsigma.y()
+                                        * ddsigma.y();
+                        gradBeta(1,1) += omgstep * penaltyWt.moment_weight * violaVelPenaD * 2.0 * dsigma.y();
+                        partialGradByTimes(i) += omg * penaltyWt.moment_weight * (violaVelPenaD * gradViolaPt * step + violaVelPena / sparseResolution_);
+                        cost += omgstep * penaltyWt.moment_weight * violaVelPena;
+                        cost_moment += omgstep * penaltyWt.moment_weight * violaVelPena;
+                    }
+                    violaOmega = dsigma.x() * dsigma.x() - config_.max_omega_ * config_.max_omega_;
+                    if(violaOmega > 0){
+                        positiveSmoothedL1(violaOmega, violaOmegaPena, violaOmegaPenaD);
+                        gradViolaPt = 2.0 * Alpha * dsigma.x()
+                                        * ddsigma.x();
+                        gradBeta(1,0) += omgstep * penaltyWt.moment_weight * violaOmegaPenaD * 2.0 * dsigma.x();
+                        partialGradByTimes(i) += omg * penaltyWt.moment_weight * (violaOmegaPenaD * gradViolaPt * step + violaOmegaPena / sparseResolution_);
+                        cost += omgstep * penaltyWt.moment_weight * violaOmegaPena;
+                        cost_moment += omgstep * penaltyWt.moment_weight * violaOmegaPena;
+                    }
+                }
+                else{
+                    // Handle the constraints on speed and angular velocity caused by the driving wheel torque. 
+                    // The polynomial inequality forms a symmetric quadrilateral, so four hyperplanes are used for constraint.
+                    for(int omg_sym = -1; omg_sym <= 1; omg_sym += 2){
+                        violaMom = omg_sym * config_.max_vel_ * dsigma.x() + config_.max_omega_ * dsigma.y() - config_.max_vel_ * config_.max_omega_;
+                        if(violaMom > 0){
+                            positiveSmoothedL1(violaMom, violaMomPena, violaMomPenaD);
+                            gradViolaMt = Alpha * (omg_sym * config_.max_vel_ * ddsigma.x() + config_.max_omega_ * ddsigma.y());
+                            gradBeta(1,0) += omgstep * penaltyWt.moment_weight * violaMomPenaD * omg_sym * config_.max_vel_;
+                            gradBeta(1,1) += omgstep * penaltyWt.moment_weight * violaMomPenaD * config_.max_omega_;
+                            partialGradByTimes(i) += omg * penaltyWt.moment_weight * (violaMomPenaD * gradViolaMt * step + violaMomPena / sparseResolution_);
+                            cost += omgstep * penaltyWt.moment_weight * violaMomPena;
+                            cost_moment += omgstep * penaltyWt.moment_weight * violaMomPena;
+                        }
+                    }
+                    for(int omg_sym = -1; omg_sym <= 1; omg_sym += 2){
+                        violaMom = omg_sym * -config_.min_vel_ * dsigma.x() - config_.max_omega_ * dsigma.y() + config_.min_vel_ * config_.max_omega_;
+                        if(violaMom > 0){
+                            positiveSmoothedL1(violaMom, violaMomPena, violaMomPenaD);
+                            gradViolaMt = Alpha * (omg_sym * -config_.min_vel_ * ddsigma.x() - config_.max_omega_ * ddsigma.y());
+                            gradBeta(1,0) += omgstep * penaltyWt.moment_weight * violaMomPenaD * omg_sym * -config_.min_vel_;
+                            gradBeta(1,1) -= omgstep * penaltyWt.moment_weight * violaMomPenaD * config_.max_omega_;
+                            partialGradByTimes(i) += omg * penaltyWt.moment_weight * (violaMomPenaD * gradViolaMt * step + violaMomPena / sparseResolution_);
+                            cost += omgstep * penaltyWt.moment_weight * violaMomPena;
+                            cost_moment += omgstep * penaltyWt.moment_weight * violaMomPena;
+                        }
+                    }
+                }
                 // Anti-skid or anti-rollover constraint
                 violaCenAcc = dsigma.x()*dsigma.x()*dsigma.y()*dsigma.y() - config_.max_centripetal_acc_*config_.max_centripetal_acc_;
                 if(violaCenAcc > 0){
@@ -1526,8 +1554,8 @@ void MSPlanner::attachPenaltyFunctionalPath(double &cost){
         // Path point constraint
         Eigen::Vector2d innerpointXY = VecTrajFinalXY[i+1];
         violaPos = (innerpointXY - inner_init_positions[i].head(2)).squaredNorm();
-        VecCoeffChainX.head(i*(SamNumEachPart+1)).array() += PathpenaltyWt.bigpath_sdf_weight * 2.0 * (innerpointXY.x() - inner_init_positions[i].x());
-        VecCoeffChainY.head(i*(SamNumEachPart+1)).array() += PathpenaltyWt.bigpath_sdf_weight * 2.0 * (innerpointXY.y() - inner_init_positions[i].y());
+        VecCoeffChainX.head((i+1)*(SamNumEachPart+1)).array() += PathpenaltyWt.bigpath_sdf_weight * 2.0 * (innerpointXY.x() - inner_init_positions[i].x());
+        VecCoeffChainY.head((i+1)*(SamNumEachPart+1)).array() += PathpenaltyWt.bigpath_sdf_weight * 2.0 * (innerpointXY.y() - inner_init_positions[i].y());
         cost += PathpenaltyWt.bigpath_sdf_weight * violaPos;
         cost_bp += PathpenaltyWt.bigpath_sdf_weight * violaPos;
 

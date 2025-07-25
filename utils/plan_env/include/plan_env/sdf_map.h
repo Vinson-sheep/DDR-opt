@@ -129,7 +129,7 @@ class SDFmap
       vis_timer_ = nh_.createTimer(ros::Duration(0.5), &SDFmap::visCallback, this);
 
       // cloud_sub_ = nh_.subscribe<sensor_msgs::PointCloud2>("/laser_simulator/local_pointcloud", 1, &SDFmap::pointCloudCallback, this);
-      cloud_sub_ = nh_.subscribe<sensor_msgs::PointCloud2>("/local_pointcloud", 1, &SDFmap::pointCloudCallback, this);
+      cloud_sub_ = nh_.subscribe<sensor_msgs::PointCloud2>("local_pointcloud", 1, &SDFmap::pointCloudCallback, this);
       // odom_sub_ = nh_.subscribe<carstatemsgs::CarState>("/odom", 1, &SDFmap::odomCallback, this);
 
       nh_.param<double>(ros::this_node::getName()+"/detection_range",detection_range_,5.0);

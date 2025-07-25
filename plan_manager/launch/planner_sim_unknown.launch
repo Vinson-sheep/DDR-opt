@@ -74,8 +74,9 @@
     <param name="global_y_upper" value="10.0"/>
     <param name="if_perspective" value="$(arg if_perspective_)"/>
     <param name="if_cirSupRaycast" value="true"/>
-    <remap from="local_pointcloud" to="/laser_simulator/local_pointcloud"/>
-    <remap from="odom" to="$(arg odom_topic)"/>
+    <remap from="~local_pointcloud" to="/laser_simulator/local_pointcloud"/>
+    <remap from="~odom" to="$(arg odom_topic)"/>
+    <remap from="~traj" to="$(arg traj_topic)"/>
 
     <!-- Observation parameters -->
     <param name="hrz_limited" value="$(arg hrz_limited_)"/>

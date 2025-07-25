@@ -37,6 +37,8 @@ struct Config
     double max_omega_;
     double max_domega_;
     double max_centripetal_acc_;
+
+    bool if_directly_constrain_v_omega_;
     
     Config(const ros::NodeHandle &nh_)
     {
@@ -46,6 +48,7 @@ struct Config
         nh_.param<double>(ros::this_node::getName()+ "/max_domega",max_domega_,50);
         nh_.param<double>(ros::this_node::getName()+ "/max_centripetal_acc",max_centripetal_acc_,10000);
         nh_.param<double>(ros::this_node::getName()+ "/max_omega",max_omega_,1);
+        nh_.param<bool>(ros::this_node::getName()+ "/if_directly_constrain_v_omega", if_directly_constrain_v_omega_, false);
     }
 };
 

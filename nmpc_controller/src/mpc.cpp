@@ -50,7 +50,7 @@ MpcController::MpcController(const ros::NodeHandle &nh){
     Ref_velocity_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("Ref_velocity",10);
     Real_velocity_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("Real_velocity",10);
 
-    ICR_sub_ = nh_.subscribe<geometry_msgs::PointStamped>("/ICREKF/EKF_ICR", 1, &MpcController::ICRCallback, this);
+    ICR_sub_ = nh_.subscribe<geometry_msgs::PointStamped>("EKF_ICR", 1, &MpcController::ICRCallback, this);
 
     {
         geometry_msgs::PoseStamped ref_v;
@@ -91,7 +91,7 @@ MpcController::MpcController(const ros::NodeHandle &nh){
     N_ = kSamples;
     dt_ = mpc_wrapper_.getTimestep();
 
-    car_control_pub_ = nh_.advertise<carstatemsgs::CarControl>("/simulation/ControlSub", 1);
+    car_control_pub_ = nh_.advertise<carstatemsgs::CarControl>("wheel_cmd", 1);
 
 
     start_time = -1;
@@ -195,6 +195,13 @@ void MpcController::CmdCallback(const ros::TimerEvent& event){
         cmd_pub_.publish(cmd);
         receive_traj_ = false;
         start_time = -1;
+    
+        carstatemsgs::CarControl car_control_cmd;
+        cmd.Header.frame_id = "world";
+        cmd.Header.stamp = ros::Time::now();
+        car_control_cmd.right_wheel_ome = predicted_inputs_(kVr, delay_num_);
+        car_control_cmd.left_wheel_ome = predicted_inputs_(kVl, delay_num_);
+        car_control_pub_.publish(car_control_cmd);
     }
     else{
         if(use_mpc_){

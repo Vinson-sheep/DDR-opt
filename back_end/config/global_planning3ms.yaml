@@ -10,7 +10,7 @@ path_lbfgs_params:
   past:                     2
   g_epsilon:                0.0
   min_step:                 0.0
-  delta:                    1.0e-2
+  delta:                    5.0e-2
   max_iterations:           8000
   shot_path_past:           8
   shot_path_horizon:        0.5

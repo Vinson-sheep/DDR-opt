@@ -16,7 +16,7 @@ Compiling tests passed on ubuntu **18.04, and 20.04** with ros installed.
 You can just execute the following commands one by one.
 ### Dependence:
 ``` bash
-sudo apt install ros-noetic-tf2-sensor-msgs # or melodic
+sudo apt install ros-${ROS_DISTRO}-tf2-sensor-msgs # noetic or melodic
 ```
 
 OSQP and OSQP-Eigen make it easier to modify parameters and are used to solve control problems under velocity and angular velocity control.
@@ -53,9 +53,14 @@ roslaunch plan_manager planner_sim.launch # for robots controlled by linear and 
 
 You can use `2D Nav Goal` to set goal point.  
 
+## Update
+25-07-25  
+1. Enhanced the 'if_directly_constrain_v_omega' feature. Users can now select between: 1) Constraining linear (v) and angular (omega) velocities independently, or 2) Constraining the product (v * omega) considering wheel speed limits.
+2. Reduced the number of ROS messages in the code that do not use topic remapping. 
+3. Fixed the bug reported in [Issue 11](https://github.com/ZJU-FAST-Lab/DDR-opt/issues/11). Thanks to SCUTBob for the report!
 
 ## Citing
-The method used in this software are described in the following paper (available on [IEEE](https://ieeexplore.ieee.org/document/10924228) and [arxiv](https://arxiv.org/abs/2409.07924v2))
+The method used in this software are described in the following paper (available on [IEEE](https://ieeexplore.ieee.org/document/10924228) and [arxiv](https://arxiv.org/abs/2409.07924v3))
 ```
 @ARTICLE{zhang2024universaltrajectoryoptimizationframework,
   author={Zhang, Mengke and Chen, Nanhe and Wang, Hu and Qiu, Jianxiong and Han, Zhichao and Ren, Qiuyu and Xu, Chao and Gao, Fei and Cao, Yanjun},
