@@ -95,29 +95,39 @@ void MpcController::OdomCallback(const nav_msgs::Odometry::ConstPtr& msg){
 }
 
 void MpcController::TrajCallback(const carstatemsgs::Polynome::ConstPtr& msg){
+
+    // 轨迹原点
     Eigen::Vector3d start_state(msg->start_position.x, msg->start_position.y, msg->start_position.z);
+
+    // 初始PVA
     Eigen::MatrixXd initstate(2, 3);
     initstate.col(0) << msg->init_p.x, msg->init_p.y;
     initstate.col(1) << msg->init_v.x, msg->init_v.y;
     initstate.col(2) << msg->init_a.x, msg->init_a.y;
+
+    // 末端PVA
     Eigen::MatrixXd finalstate(2, 3);
     finalstate.col(0) << msg->tail_p.x, msg->tail_p.y;
     finalstate.col(1) << msg->tail_v.x, msg->tail_v.y;
     finalstate.col(2) << msg->tail_a.x, msg->tail_a.y;
 
+    // PS
     Eigen::MatrixXd InnerPoints;
     InnerPoints.resize(2, msg->innerpoints.size());
     for(u_int i=0; i<msg->innerpoints.size(); i++){
         InnerPoints.col(i) << msg->innerpoints[i].x, msg->innerpoints[i].y;
     }
+
+    // TS
     Eigen::VectorXd t_pts(msg->t_pts.size());
     for(u_int i=0; i<msg->t_pts.size(); i++){
         t_pts[i] = msg->t_pts[i];
     }
 
+    // 构造Minco轨迹
     new_traj_.setTraj(start_state, initstate, finalstate, InnerPoints, t_pts);
 
-    sequencePub();
+    // sequencePub();
     new_traj_start_time_ = msg->traj_start_time.toSec();
 
     new_traj_.if_get_traj_ = true;
@@ -156,7 +166,11 @@ void MpcController::CmdCallback(const ros::TimerEvent& event){
         start_time = -1;
     }
     else{
+
+        // 核心
         if(use_mpc_){
+
+            // 提取轨迹的状态和参考控制量
             getRefPoints(T, dt);
             for (int i = 0; i < T; i++){
                 xref(0, i) = P[i].x;
@@ -165,8 +179,13 @@ void MpcController::CmdCallback(const ros::TimerEvent& event){
                 dref(0, i) = P[i].v;
                 dref(1, i) = P[i].w;
             }
+
+            // 对偏航进行归一化
             smooth_yaw();
+
+            // 获取mpc控制量
             getCmd();
+
             carstatemsgs::CarState cmd;
             cmd.Header.frame_id = "world";
             cmd.Header.stamp = ros::Time::now();
@@ -179,6 +198,7 @@ void MpcController::CmdCallback(const ros::TimerEvent& event){
             cmd.jyaw = 0.0;
             cmd_pub_.publish(cmd);
 
+            // 执行延迟控制量
             current_output = output.col(delay_num);
         }
         else{
@@ -232,6 +252,7 @@ void MpcController::getLinearModel(const MPCState& s)
 
 void MpcController::stateTrans(MPCState& s, double a, double yaw_dot)
 {
+    // 截断yaw_dot
     if (yaw_dot >= max_omega)
     {
         yaw_dot = max_omega;
@@ -240,6 +261,7 @@ void MpcController::stateTrans(MPCState& s, double a, double yaw_dot)
     {
         yaw_dot = -max_omega;
     }
+    // 截断v
     if (s.v >= max_speed)
     {
         s.v = max_speed;
@@ -249,13 +271,14 @@ void MpcController::stateTrans(MPCState& s, double a, double yaw_dot)
         s.v = min_speed;
     }
 
+    // 基于离散化模型向前递推一个周期
     s.x = s.x + a * cos(s.theta) * dt;
     s.y = s.y + a * sin(s.theta) * dt;
     s.theta = s.theta + yaw_dot * dt;
     s.v = a;
 }
 
-
+// 基于小车实际状态，往前递推
 void MpcController::predictMotion(void)
 {
     xbar[0] = now_state;
@@ -570,11 +593,20 @@ void MpcController::getCmd(void)
 {
     int iter;
     Last_plan_time = ros::Time::now().toSec();
+
+    // 迭代求解非线性MPC
     for (iter = 0; iter < max_iter; iter++)
     {
+        // 基于上一次控制结果，递推未来状态 (第一次递推用什么？？)
         predictMotion();
+
+        // 记录上一次控制结果
         last_output = output;
+
+        // 以递推的状态进行线性化，再次计算结果
         solveMPCV();
+
+        // 如果上次求解结果和本次求解结果相差不大，可以退出循环
         double du = 0;
         for (int i = 0; i < output.cols(); i++)
         {
@@ -582,6 +614,8 @@ void MpcController::getCmd(void)
         }
         // break;
         // if (du <= du_th || (ros::Time::now() - begin).toSec() > max_mpc_time_)
+
+        // 如果迭代次数超出上限，可以退出循环
         if (ros::Time::now().toSec() - Last_plan_time > max_mpc_time_)
         {
             break;
@@ -591,21 +625,22 @@ void MpcController::getCmd(void)
     // {
     //     ROS_WARN("MPC Iterative is max iter");
     // }
-    predictMotion(xopt);
+    // predictMotion(xopt);
 
-    nav_msgs::Path path;
-    path.header.frame_id = "world";
-    path.header.stamp = ros::Time::now();
-    geometry_msgs::PoseStamped pose;
-    for (int i = 0; i < T; i++){
-        pose.pose.position.x = xopt[i].x;
-        pose.pose.position.y = xopt[i].y;
-        pose.pose.position.z = 0;
-        pose.pose.orientation = tf::createQuaternionMsgFromYaw(xopt[i].theta);
-        path.poses.push_back(pose);
-    }
-    cmd_path_pub_.publish(path);
+    // nav_msgs::Path path;
+    // path.header.frame_id = "world";
+    // path.header.stamp = ros::Time::now();
+    // geometry_msgs::PoseStamped pose;
+    // for (int i = 0; i < T; i++){
+    //     pose.pose.position.x = xopt[i].x;
+    //     pose.pose.position.y = xopt[i].y;
+    //     pose.pose.position.z = 0;
+    //     pose.pose.orientation = tf::createQuaternionMsgFromYaw(xopt[i].theta);
+    //     path.poses.push_back(pose);
+    // }
+    // cmd_path_pub_.publish(path);
     
+    // 将buffer中第一个弹出，并插入目标控制量
     if (delay_num > 0)
     {
         output_buff.erase(output_buff.begin());
@@ -639,18 +674,18 @@ void MpcController::getRefPoints(const int T, double dt){
 
     geometry_msgs::PoseStamped ref_v;
     auto current_a = traj_.getAstate(std::min(ros::Time::now().toSec() - start_time, traj_duration));
-    auto current_v = traj_.getVstate(std::min(ros::Time::now().toSec() - start_time, traj_duration));
-    auto current_p = traj_.getPstate(std::min(ros::Time::now().toSec() - start_time, traj_duration));
-    ref_v.header.stamp = ros::Time::now();
-    ref_v.header.frame_id = "world";
-    ref_v.pose.position.x = current_p.x();
-    ref_v.pose.position.y = current_p.y();
-    ref_v.pose.position.z = current_p.z();
-    ref_v.pose.orientation.w = current_v.x();
-    ref_v.pose.orientation.x = current_v.y();
-    ref_v.pose.orientation.y = current_a.x();
-    ref_v.pose.orientation.z = current_a.y();
-    Ref_velocity_pub_.publish(ref_v);
+    // auto current_v = traj_.getVstate(std::min(ros::Time::now().toSec() - start_time, traj_duration));
+    // auto current_p = traj_.getPstate(std::min(ros::Time::now().toSec() - start_time, traj_duration));
+    // ref_v.header.stamp = ros::Time::now();
+    // ref_v.header.frame_id = "world";
+    // ref_v.pose.position.x = current_p.x();
+    // ref_v.pose.position.y = current_p.y();
+    // ref_v.pose.position.z = current_p.z();
+    // ref_v.pose.orientation.w = current_v.x();
+    // ref_v.pose.orientation.x = current_v.y();
+    // ref_v.pose.orientation.y = current_a.x();
+    // ref_v.pose.orientation.z = current_a.y();
+    // Ref_velocity_pub_.publish(ref_v);
 
     if (t_cur > traj_duration + 1.0){
         at_goal = true;
@@ -658,6 +693,8 @@ void MpcController::getRefPoints(const int T, double dt){
     else{
         at_goal = false;
     }
+
+    // 从轨迹中提取P V \theta 以及线速度角速度
     for (double temp_t = t_cur + dt; j < T; j++, temp_t += dt){
         if (temp_t <= traj_duration){
             Eigen::Vector3d curP = traj_.getPstate(temp_t);
@@ -689,65 +726,65 @@ void MpcController::getRefPoints(const int T, double dt){
         }
     }
 
-    nav_msgs::Path path;
-    path.header.frame_id = "world";
-    path.header.stamp = ros::Time::now();
-    geometry_msgs::PoseStamped pose;
-    for (u_int i = 0; i < P.size(); i++){
-        pose.pose.position.x = P[i].x;
-        pose.pose.position.y = P[i].y;
-        pose.pose.position.z = 0;
-        pose.pose.orientation = tf::createQuaternionMsgFromYaw(P[i].theta);
-        path.poses.push_back(pose);
-    }
-    Ref_path_pub_.publish(path);
-    visualization_msgs::Marker path_marker;
-    path_marker.header.frame_id = "world";
-    path_marker.header.stamp = ros::Time::now();
-    path_marker.ns = "path_marker";
-    path_marker.id = 0;
-    path_marker.type = visualization_msgs::Marker::LINE_STRIP;
-    path_marker.action = visualization_msgs::Marker::ADD;
-    path_marker.pose.orientation.w = 1.0;
-    path_marker.scale.x = 0.1;
+    // nav_msgs::Path path;
+    // path.header.frame_id = "world";
+    // path.header.stamp = ros::Time::now();
+    // geometry_msgs::PoseStamped pose;
+    // for (u_int i = 0; i < P.size(); i++){
+    //     pose.pose.position.x = P[i].x;
+    //     pose.pose.position.y = P[i].y;
+    //     pose.pose.position.z = 0;
+    //     pose.pose.orientation = tf::createQuaternionMsgFromYaw(P[i].theta);
+    //     path.poses.push_back(pose);
+    // }
+    // Ref_path_pub_.publish(path);
+    // visualization_msgs::Marker path_marker;
+    // path_marker.header.frame_id = "world";
+    // path_marker.header.stamp = ros::Time::now();
+    // path_marker.ns = "path_marker";
+    // path_marker.id = 0;
+    // path_marker.type = visualization_msgs::Marker::LINE_STRIP;
+    // path_marker.action = visualization_msgs::Marker::ADD;
+    // path_marker.pose.orientation.w = 1.0;
+    // path_marker.scale.x = 0.1;
     
-    path_marker.color.r = 0.0;
-    path_marker.color.g = 1.0;
-    path_marker.color.b = 0.0;
-    path_marker.color.a = 1.0;
+    // path_marker.color.r = 0.0;
+    // path_marker.color.g = 1.0;
+    // path_marker.color.b = 0.0;
+    // path_marker.color.a = 1.0;
 
 
-    for (u_int i = 0; i < P.size(); i++){
-        geometry_msgs::Point point;
-        point.x = P[i].x;
-        point.y = P[i].y;
-        point.z = 0;
-        path_marker.points.push_back(point);
-    }
+    // for (u_int i = 0; i < P.size(); i++){
+    //     geometry_msgs::Point point;
+    //     point.x = P[i].x;
+    //     point.y = P[i].y;
+    //     point.z = 0;
+    //     path_marker.points.push_back(point);
+    // }
 
-    Ref_path_marker_pub_.publish(path_marker);
+    // Ref_path_marker_pub_.publish(path_marker);
 }
 
-void MpcController::sequencePub(){
-    sensor_msgs::PointCloud2 globalMap_pcd;
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr  colored_pcl_ptr (new pcl::PointCloud<pcl::PointXYZRGB>);
-    pcl::PointCloud<pcl::PointXYZ> cloudMap;
-    pcl::PointXYZRGB  pt;
+// void MpcController::sequencePub(){
+//     sensor_msgs::PointCloud2 globalMap_pcd;
+//     pcl::PointCloud<pcl::PointXYZRGB>::Ptr  colored_pcl_ptr (new pcl::PointCloud<pcl::PointXYZRGB>);
+//     pcl::PointCloud<pcl::PointXYZ> cloudMap;
+//     pcl::PointXYZRGB  pt;
 
-    std::vector<Eigen::Vector4d> seq = new_traj_.get_state_sequence_();
-    for(u_int i=0; i<seq.size(); i++){
-        pt.x = seq[i].x();
-        pt.y = seq[i].y();
-        pt.z = 0.1;
-        pt.r = 255;
-        pt.g = 0;
-        pt.b = 255;
-        colored_pcl_ptr->points.push_back(pt); 
-    }
-    cloudMap.height = colored_pcl_ptr->points.size();
-    cloudMap.width = 1;
-    pcl::toROSMsg(*colored_pcl_ptr,globalMap_pcd);
-    globalMap_pcd.header.stamp = ros::Time::now();
-    globalMap_pcd.header.frame_id = "world";
-    sequence_pub_.publish(globalMap_pcd);
-}
+//     std::vector<Eigen::Vector4d> seq = new_traj_.get_state_sequence_();
+//     for(u_int i=0; i<seq.size(); i++){
+//         pt.x = seq[i].x();
+//         pt.y = seq[i].y();
+//         pt.z = 0.1;
+//         pt.r = 255;
+//         pt.g = 0;
+//         pt.b = 255;
+//         colored_pcl_ptr->points.push_back(pt); 
+//     }
+//     cloudMap.height = colored_pcl_ptr->points.size();
+//     cloudMap.width = 1;
+//     pcl::toROSMsg(*colored_pcl_ptr,globalMap_pcd);
+//     globalMap_pcd.header.stamp = ros::Time::now();
+//     globalMap_pcd.header.frame_id = "world";
+//     sequence_pub_.publish(globalMap_pcd);
+// }
