@@ -160,6 +160,7 @@ MSPlanner::MSPlanner(const Config &conf, ros::NodeHandle &nh, std::shared_ptr<SD
     readParam(ros::this_node::getName() + "/if_standard_diff", if_standard_diff_);
 }
 
+// 算法入口
 bool MSPlanner::minco_plan(const FlatTrajData &flat_traj){
 
     ros::Time minco_start = ros::Time::now();
@@ -167,15 +168,20 @@ bool MSPlanner::minco_plan(const FlatTrajData &flat_traj){
     bool final_collision = false;
     int replan_num_for_coll = 0;
 
+    // 计算安全距离
     double start_safe_dis = map_->getDistanceReal(flat_traj.start_state_XYTheta.head(2))*0.85;
     safeDis = std::min(start_safe_dis, safeDis_);
     
+    // 尝试N次规划
     for(; replan_num_for_coll < safeReplanMaxTime; replan_num_for_coll++){
 
+        // 从轨迹中提取初始状态
         if(get_state(flat_traj))
             ROS_INFO("\033[40;36m get_state time:%f \033[0m", (ros::Time::now()-current).toSec());
         else
             return false;
+
+        // 执行优化
         current = ros::Time::now();
         if(optimizer())
             ROS_INFO("\033[41;37m minco optimizer time:%f \033[0m", (ros::Time::now()-current).toSec());
@@ -212,6 +218,7 @@ bool MSPlanner::minco_plan(const FlatTrajData &flat_traj){
     return true;
 }
 
+// 从轨迹中提取初始状态
 bool MSPlanner::get_state(const FlatTrajData &flat_traj){
     ifCutTraj_ = flat_traj.if_cut;
 
@@ -241,7 +248,10 @@ bool MSPlanner::get_state(const FlatTrajData &flat_traj){
     return true;
 }
 
+// 优化轨迹
 bool MSPlanner::optimizer(){
+
+
     // Initialize Lagrangian
     if(!ifCutTraj_){
         EqualLambda = init_EqualLambda_;
@@ -265,8 +275,8 @@ bool MSPlanner::optimizer(){
 
     Minco.setParameters(Innerpoints, pieceTime);   
     Minco.getTrajectory(init_final_traj_);
-    mincoPathPub(init_final_traj_, iniStateXYTheta, mincoinitPath); 
-    mincoPointPub(init_final_traj_, iniStateXYTheta, mincoinitPoint, Eigen::Vector3d(173, 127, 168));
+    // mincoPathPub(init_final_traj_, iniStateXYTheta, mincoinitPath); 
+    // mincoPointPub(init_final_traj_, iniStateXYTheta, mincoinitPoint, Eigen::Vector3d(173, 127, 168));
     Eigen::VectorXd x;
     x.resize(variable_num_);
     int offset = 0;
@@ -292,6 +302,7 @@ bool MSPlanner::optimizer(){
         path_lbfgs_params_.path_lbfgs_params.past = path_lbfgs_params_.normal_past;
     }
 
+    // 仅考虑位置偏差优化轨迹，获取好的初值
     ifprint = false;
     result = lbfgs::lbfgs_optimize(x,
                                 cost,
@@ -304,31 +315,31 @@ bool MSPlanner::optimizer(){
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 
-    // Output computation time
-    visualization_msgs::Marker marker;
-    marker.header.frame_id = "world";
-    marker.header.stamp = ros::Time::now();
-    marker.ns = "pre_process";
-    marker.id = 0;
-    marker.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
-    marker.action = visualization_msgs::Marker::ADD;
-    marker.pose.position.x = 11.5;
-    marker.pose.position.y = 7;
-    marker.pose.position.z = 0;
-    marker.pose.orientation.x = 0.0;
-    marker.pose.orientation.y = 0.0;
-    marker.pose.orientation.z = 0.0;
-    marker.pose.orientation.w = 1.0;
-    marker.scale.z = 0.5;
-    marker.color.a = 1.0;
-    marker.color.r = 0.0;
-    marker.color.g = 0.0;
-    marker.color.b = 0.0;
-    double search_time = duration / 1000.0;
-    std::ostringstream out;
-    out << std::fixed << "Pre-process: \n"<< std::setprecision(2) << search_time<<" ms";
-    marker.text = out.str();
-    recordTextPub.publish(marker);
+    // // Output computation time
+    // visualization_msgs::Marker marker;
+    // marker.header.frame_id = "world";
+    // marker.header.stamp = ros::Time::now();
+    // marker.ns = "pre_process";
+    // marker.id = 0;
+    // marker.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+    // marker.action = visualization_msgs::Marker::ADD;
+    // marker.pose.position.x = 11.5;
+    // marker.pose.position.y = 7;
+    // marker.pose.position.z = 0;
+    // marker.pose.orientation.x = 0.0;
+    // marker.pose.orientation.y = 0.0;
+    // marker.pose.orientation.z = 0.0;
+    // marker.pose.orientation.w = 1.0;
+    // marker.scale.z = 0.5;
+    // marker.color.a = 1.0;
+    // marker.color.r = 0.0;
+    // marker.color.g = 0.0;
+    // marker.color.b = 0.0;
+    // double search_time = duration / 1000.0;
+    // std::ostringstream out;
+    // out << std::fixed << "Pre-process: \n"<< std::setprecision(2) << search_time<<" ms";
+    // marker.text = out.str();
+    // recordTextPub.publish(marker);
 
     ifprint = true;
     costFunctionCallbackPath(this,x,g);
